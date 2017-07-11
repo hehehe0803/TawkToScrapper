@@ -13,13 +13,11 @@ from bs4 import BeautifulSoup
 url = "https://dashboard.tawk.to/#/messaging"
 
 #set up browser ao
-chrome_options = webdriver.ChromeOptions()
-prefs = {"profile.default_content_setting_values.notifications": 2}
-chrome_options.add_experimental_option("prefs", prefs)
-browser = webdriver.Chrome(chrome_options=chrome_options)
+browser = webdriver.PhantomJS("phantomjs")
 # browser = webdriver.Chrome()
 browser.set_page_load_timeout(15)
 wait = WebDriverWait(browser, 500)
+
 
 
 browser.get(url)

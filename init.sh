@@ -1,14 +1,13 @@
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo dpkg -i --force-depends google-chrome-stable_current_amd64.deb
-rm google-chrome-stable_current_amd64.deb
-LATEST=$(wget -q -O - http://chromedriver.storage.googleapis.com/LATEST_RELEASE)
-wget http://chromedriver.storage.googleapis.com/$LATEST/chromedriver_linux64.zip
-unzip chromedriver_linux64.zip
-rm chromedriver_linux64.zip
-mkdir browser_driver
-mv chromedriver browser_driver/
+sudo apt-get update
+sudo apt-get install build-essential chrpath libssl-dev libxft-dev -y
+sudo apt-get install libfreetype6 libfreetype6-dev -y
+sudo apt-get install libfontconfig1 libfontconfig1-dev -y
+cd ~
+export PHANTOM_JS="phantomjs-2.1.1-linux-x86_64"
+wget https://github.com/Medium/phantomjs/releases/download/v2.1.1/$PHANTOM_JS.tar.bz2
+sudo tar xvjf $PHANTOM_JS.tar.bz2
+sudo mv $PHANTOM_JS /usr/local/share
+sudo ln -sf /usr/local/share/$PHANTOM_JS/bin/phantomjs /usr/bin
 virtualenv env
 source env/bin/activate
 pip install -r requirements.txt
-cd browser_driver
-sudo ln -s $PWD/chromedriver /usr/local/bin/chromedriver
