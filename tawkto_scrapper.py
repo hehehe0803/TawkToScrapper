@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import time
+import time as system_time
 import unicodecsv as csv
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -66,7 +66,7 @@ class TawkToScrapper(object):
         self.browser.find_element_by_id('close-conversation').click()
         self.wait_until_element_id_loaded('conversation-list')
         while (len(self.browser.find_element_by_id('conversation-list').find_elements_by_tag_name('tr')) == 0):
-            time.sleep(1)
+            system_time.sleep(1)
 
     def switch_to_default_list_message_menu(self):
         self.browser.get('https://dashboard.tawk.to/#/messaging')
@@ -122,8 +122,11 @@ class TawkToScrapper(object):
                 conversation_list = self.browser.find_element_by_id('conversation-list')
                 items = conversation_list.find_elements_by_tag_name('tr')
                 print('{} - {}'.format(count, len(items)))
-                if count == len(items):
+                try_count = 0
+                while (count >= len(items) and try_count < 5):
                     self.load_more_messages()
+                    system_time.sleep(1)
+                    try_count += 1
                 item = conversation_list.find_elements_by_tag_name('tr')[count]
                 item.click()
                 name, email, notes = self.get_conversation_detail_note()
@@ -224,10 +227,12 @@ class TawkToScrapper(object):
 
 
 if __name__ == '__main__':
-    scrapper = TawkToScrapper()
-    scrapper.browser.get(TAWKTO_URL)
-    scrapper.login('xander.analytics@gmail.com', 'xander2017')
-    scrapper.switch_to_default_list_message_menu()
-    # scrapper.load_all_messages()
-    scrapper.write_message_to_csv('exported.csv')
-    scrapper.browser.close()
+    try:
+        scrapper = TawkToScrapper()
+        scrapper.browser.get(TAWKTO_URL)
+        scrapper.login('xander.analytics@gmail.com', 'xander2017')
+        scrapper.switch_to_default_list_message_menu()
+        # scrapper.load_all_messages()
+        scrapper.write_message_to_csv('exported.csv')
+    finally:
+        scrapper.browser.close()
