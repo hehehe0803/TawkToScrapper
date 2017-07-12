@@ -48,7 +48,7 @@ class TawkToScrapper(object):
 
     def wait_until_element_id_loaded(self, element_id):
         try:
-            WebDriverWait(self.browser, 30).until(EC.presence_of_element_located((By.ID, element_id)))
+            WebDriverWait(self.browser, 120).until(EC.presence_of_element_located((By.ID, element_id)))
             print("Successfully wait for element with id {}".format(element_id))
         except TimeoutException:
             print("Wait timeout for element with id {}".format(element_id))
@@ -56,7 +56,7 @@ class TawkToScrapper(object):
 
     def wait_until_element_id_hidden(self, element_id):
         try:
-            WebDriverWait(self.browser, 30).until(EC.invisibility_of_element_located((By.ID, element_id)))
+            WebDriverWait(self.browser, 120).until(EC.invisibility_of_element_located((By.ID, element_id)))
             print("Successfully wait for element with id{}".format(element_id))
         except TimeoutException:
             print("Wait timeout for element with id{}".format(element_id))
