@@ -53,6 +53,7 @@ class TawkToScrapper(object):
             print("Successfully wait for element with id {}".format(element_id))
         except TimeoutException:
             print("Wait timeout for element with id {}".format(element_id))
+            self.browser.save_screenshot('error.png')
 
     def wait_until_element_id_hidden(self, element_id):
         try:
@@ -60,6 +61,7 @@ class TawkToScrapper(object):
             print("Successfully wait for element with id{}".format(element_id))
         except TimeoutException:
             print("Wait timeout for element with id{}".format(element_id))
+            self.browser.save_screenshot('error.png')
 
     def back_to_conversation_list_from_conversation_detail(self):
         self.wait_until_element_id_loaded('close-conversation')
@@ -72,8 +74,10 @@ class TawkToScrapper(object):
         self.browser.get('https://dashboard.tawk.to/#/messaging')
         self.wait_until_element_id_loaded('conversations-properties')
         self.wait_until_element_id_loaded('conversation-list')
-        if not self.browser.find_element_by_id('conversation-list').is_displayed() or len(self.browser.find_element_by_id('conversation-list').find_elements_by_tag_name('tr')) == 0:
+        if not self.browser.find_element_by_id('conversation-list').is_displayed():
             self.back_to_conversation_list_from_conversation_detail()
+        while (len(self.browser.find_element_by_id('conversation-list').find_elements_by_tag_name('tr')) == 0):
+            system_time.sleep(1)
 
     def load_more_messages(self):
         script_to_load_more_messages = """
