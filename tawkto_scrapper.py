@@ -64,7 +64,16 @@ class TawkToScrapper(object):
 
     def back_to_conversation_list_from_conversation_detail(self):
         self.wait_until_element_id_loaded('close-conversation')
-        self.browser.find_element_by_id('close-conversation').click()
+        count = 0
+        while (not self.browser.find_element_by_id('close-conversation').is_displayed() and
+               count < 30):
+            system_time.sleep(1)
+            count += 1
+        try:
+            self.browser.find_element_by_id('close-conversation').click()
+        except Exception:
+            system_time.sleep(5)
+            self.back_to_conversation_list_from_conversation_detail()
         self.wait_until_element_id_loaded('conversation-list')
         while (len(self.browser.find_element_by_id('conversation-list').find_elements_by_tag_name('tr')) == 0):
             system_time.sleep(1)
@@ -121,14 +130,15 @@ class TawkToScrapper(object):
                              'Visitor navigated to',
                              'History'))
             count = 1
-            while (count < 100):
+            while (count < 2000):
                 conversation_list = self.browser.find_element_by_id('conversation-list')
                 items = conversation_list.find_elements_by_tag_name('tr')
                 print('{} - {}'.format(count, len(items)))
                 try_count = 0
-                while (count >= len(items) and try_count < 5):
+                while (count >= len(items) and try_count < 30):
                     self.load_more_messages()
                     system_time.sleep(1)
+                    items = conversation_list.find_elements_by_tag_name('tr')
                     try_count += 1
                 item = conversation_list.find_elements_by_tag_name('tr')[count]
                 item.click()
@@ -237,5 +247,8 @@ if __name__ == '__main__':
         scrapper.switch_to_default_list_message_menu()
         # scrapper.load_all_messages()
         scrapper.write_message_to_csv('exported.csv')
+    except Exception as e:
+        import traceback; traceback.print_exc();
+        scrapper.browser.save_screenshot('error.png')
     finally:
         scrapper.browser.close()
