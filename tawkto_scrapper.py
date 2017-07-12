@@ -7,10 +7,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 
-from bs4 import BeautifulSoup
-
 TAWKTO_URL = "https://dashboard.tawk.to/login"
 PHANTOM_JS_PATH = "phantomjs"
+TIME_FORMAT_1 = '%A, %B %d %Y, %H:%M'
 
 
 class TawkToScrapper(object):
