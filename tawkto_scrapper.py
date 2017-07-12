@@ -49,17 +49,17 @@ class TawkToScrapper(object):
 
     def wait_until_element_id_loaded(self, element_id):
         try:
-            WebDriverWait(self.browser, 20).until(EC.presence_of_element_located((By.ID, element_id)))
-            print("Successfully wait {}".format(element_id))
+            WebDriverWait(self.browser, 30).until(EC.presence_of_element_located((By.ID, element_id)))
+            print("Successfully wait for element with id {}".format(element_id))
         except TimeoutException:
-            print("Wait timeout {}".format(element_id))
+            print("Wait timeout for element with id {}".format(element_id))
 
     def wait_until_element_id_hidden(self, element_id):
         try:
-            WebDriverWait(self.browser, 20).until(EC.invisibility_of_element_located((By.ID, element_id)))
-            print("Successfully wait {}".format(element_id))
+            WebDriverWait(self.browser, 30).until(EC.invisibility_of_element_located((By.ID, element_id)))
+            print("Successfully wait for element with id{}".format(element_id))
         except TimeoutException:
-            print("Wait timeout {}".format(element_id))
+            print("Wait timeout for element with id{}".format(element_id))
 
     def back_to_conversation_list_from_conversation_detail(self):
         self.wait_until_element_id_loaded('close-conversation')
