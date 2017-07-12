@@ -72,7 +72,7 @@ class TawkToScrapper(object):
         self.browser.get('https://dashboard.tawk.to/#/messaging')
         self.wait_until_element_id_loaded('conversations-properties')
         self.wait_until_element_id_loaded('conversation-list')
-        if not self.browser.find_element_by_id('conversation-list').is_displayed():
+        if not self.browser.find_element_by_id('conversation-list').is_displayed() or len(self.browser.find_element_by_id('conversation-list').find_elements_by_tag_name('tr')) == 0:
             self.back_to_conversation_list_from_conversation_detail()
 
     def load_more_messages(self):
