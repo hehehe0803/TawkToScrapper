@@ -1,3 +1,5 @@
 env/*
 browser_driver/*
 *.log
+*.csv
+*.png

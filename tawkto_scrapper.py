@@ -1,70 +1,233 @@
+# -*- coding: utf-8 -*-
 import time
+import unicodecsv as csv
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
 from bs4 import BeautifulSoup
 
-url = "https://dashboard.tawk.to/#/messaging"
-
-#set up browser ao
-browser = webdriver.PhantomJS("phantomjs")
-# browser = webdriver.Chrome()
-browser.set_page_load_timeout(15)
-wait = WebDriverWait(browser, 500)
+TAWKTO_URL = "https://dashboard.tawk.to/login"
+PHANTOM_JS_PATH = "phantomjs"
 
 
+class TawkToScrapper(object):
 
-browser.get(url)
+    script_to_load_all_messages = """
+        function infiniteScroll(tableHeight, table, limit, count) {
+            table.scrollIntoView(0, 1000);
 
-#login
-username = browser.find_element_by_id("email")
-password = browser.find_element_by_id("password")
-username.send_keys("xander.analytics@gmail.com")
-password.send_keys("xander2017")
+            if(count == limit)
+                return;
 
-login_attempt = browser.find_element_by_xpath("//*[@type='submit']")
-login_attempt.submit()
+            setTimeout(function()
+            {
+                infiniteScroll(tableHeight, table, limit, count + 1);
 
-time.sleep(5)
+            }, 2000);
+        }
+        var table = document.getElementById('conversation-list').children[0];
+        var tableHeight = 0;
+        infiniteScroll(tableHeight, table, 30, 1)
+    """
 
-browser.get(url)
+    def __init__(self):
+        self.browser = webdriver.PhantomJS(PHANTOM_JS_PATH)
+        self.browser.delete_all_cookies()
+        self.browser.set_window_size(1920, 1080)
 
-time.sleep(15)
+    def login(self, username, password):
+        username_field = self.browser.find_element_by_id("email")
+        password_field = self.browser.find_element_by_id("password")
+        username_field.send_keys(username)
+        password_field.send_keys(password)
+        login_attempt = self.browser.find_element_by_xpath("//*[@type='submit']")
+        login_attempt.submit()
+        self.wait_until_element_id_loaded('wid-id-0')
+
+    def wait_until_element_id_loaded(self, element_id):
+        try:
+            WebDriverWait(self.browser, 20).until(EC.presence_of_element_located((By.ID, element_id)))
+            print("Successfully wait {}".format(element_id))
+        except TimeoutException:
+            print("Wait timeout {}".format(element_id))
+
+    def wait_until_element_id_hidden(self, element_id):
+        try:
+            WebDriverWait(self.browser, 20).until(EC.invisibility_of_element_located((By.ID, element_id)))
+            print("Successfully wait {}".format(element_id))
+        except TimeoutException:
+            print("Wait timeout {}".format(element_id))
+
+    def back_to_conversation_list_from_conversation_detail(self):
+        self.wait_until_element_id_loaded('close-conversation')
+        self.browser.find_element_by_id('close-conversation').click()
+        self.wait_until_element_id_loaded('conversation-list')
+        while (len(self.browser.find_element_by_id('conversation-list').find_elements_by_tag_name('tr')) == 0):
+            time.sleep(1)
+
+    def switch_to_default_list_message_menu(self):
+        self.browser.get('https://dashboard.tawk.to/#/messaging')
+        self.wait_until_element_id_loaded('conversations-properties')
+        self.wait_until_element_id_loaded('conversation-list')
+        if not self.browser.find_element_by_id('conversation-list').is_displayed():
+            self.back_to_conversation_list_from_conversation_detail()
+
+    def load_more_messages(self):
+        script_to_load_more_messages = """
+            var table = document.getElementById('conversation-list').children[0];
+            table.scrollIntoView(0, 1000);
+        """
+        self.browser.execute_script(script_to_load_more_messages)
+        self.wait_until_element_id_loaded('list-loading')
+        self.wait_until_element_id_hidden('list-loading')
+
+    def load_all_messages(self):
+        count = 1
+        while (count < 500):
+            conversation_list = self.browser.find_element_by_id('conversation-list')
+            items = conversation_list.find_elements_by_tag_name('tr')
+            print('{} - {}'.format(count, len(items)))
+            if count == len(items):
+                self.load_more_messages()
+            item = conversation_list.find_elements_by_tag_name('tr')[count]
+            item.click()
+            print(self.get_message_transcript())
+            print(self.get_conversation_detail_note())
+            print(self.get_conversation_detail_details())
+            print(self.get_conversation_detail_location())
+            print(self.get_conversation_detail_timeline())
+            print(self.get_conversation_detail_history())
+            self.back_to_conversation_list_from_conversation_detail()
+            count += 1
+
+    def write_message_to_csv(self, file_path):
+        with open(file_path, 'wb') as f:
+            writer = csv.writer(f)
+            writer.writerow(('Message',
+                             'Nội dung message',
+                             'Kênh liên lạc',
+                             'Name',
+                             'Email',
+                             'Notes',
+                             'Time',
+                             'Tags',
+                             'Location',
+                             'Visitor navigated to',
+                             'History'))
+            count = 1
+            while (count < 100):
+                conversation_list = self.browser.find_element_by_id('conversation-list')
+                items = conversation_list.find_elements_by_tag_name('tr')
+                print('{} - {}'.format(count, len(items)))
+                if count == len(items):
+                    self.load_more_messages()
+                item = conversation_list.find_elements_by_tag_name('tr')[count]
+                item.click()
+                name, email, notes = self.get_conversation_detail_note()
+                time, last_visit, served_by = self.get_conversation_detail_details()
+                location, ip_address = self.get_conversation_detail_location()
+                visited = ''
+                for item in self.get_conversation_detail_timeline():
+                    if 'url' in item:
+                        visited += item['url'] + '\n'
+                writer.writerow((
+                    self.get_message_title(),
+                    self.get_message_transcript(),
+                    self.get_current_channel(),
+                    name,
+                    email,
+                    notes,
+                    time,
+                    '',
+                    location,
+                    visited,
+                    self.get_conversation_detail_history()
+                ))
+                self.back_to_conversation_list_from_conversation_detail()
+                count += 1
+
+    def get_current_channel(self):
+        self.wait_until_element_id_loaded('conversations-properties')
+        return self.browser.find_element_by_id('conversations-properties').find_element_by_class_name('open').find_element_by_class_name('title-section').get_attribute('innerHTML')
+
+    def get_message_title(self):
+        self.wait_until_element_id_loaded('chat-with')
+        return self.browser.find_element_by_id('chat-with').get_attribute('innerHTML')
+
+    def get_message_transcript(self):
+        self.wait_until_element_id_loaded('conversations-messages-container')
+        message_container = self.browser.find_element_by_id('conversations-messages-container')
+        return message_container.text
+
+    def wait_for_conversation_details_loaded_and_get_tab_element(self, tab):
+        self.wait_until_element_id_loaded('conversation-details-container')
+        self.wait_until_element_id_loaded(tab)
+        return self.browser.find_element_by_id(tab)
+
+    def get_conversation_detail_note(self):
+        tab = self.wait_for_conversation_details_loaded_and_get_tab_element('tab1')
+        name = tab.find_element_by_class_name('note-name').get_attribute('value')
+        email = tab.find_element_by_class_name('note-email').get_attribute('value')
+        notes = tab.find_element_by_class_name('note-text').get_attribute('value')
+        return name, email, notes
+
+    def get_conversation_detail_details(self):
+        tab = self.wait_for_conversation_details_loaded_and_get_tab_element('tab2')
+        time = tab.find_elements_by_tag_name('li')[0].find_element_by_class_name('info').get_attribute('innerHTML')
+        last_visit = tab.find_elements_by_tag_name('li')[1].find_element_by_class_name('info').get_attribute('innerHTML')
+        # device = tab.find_elements_by_tag_name('li')[2].find_element_by_class_name('info').get_attribute('innerHTML')
+        served_by = tab.find_elements_by_tag_name('li')[3].find_element_by_class_name('info').get_attribute('innerHTML') if len(tab.find_elements_by_tag_name('li')) > 3 else ''
+        return time, last_visit, served_by
+
+    def get_conversation_detail_location(self):
+        tab = self.wait_for_conversation_details_loaded_and_get_tab_element('tab3')
+        location = tab.find_elements_by_tag_name('li')[0].find_element_by_class_name('info').get_attribute('innerHTML')
+        ip_address = tab.find_elements_by_tag_name('li')[1].find_element_by_class_name('info').get_attribute('innerHTML')
+        return location, ip_address
+
+    def get_conversation_detail_timeline(self):
+        tab = self.wait_for_conversation_details_loaded_and_get_tab_element('tab5')
+        timeline_items = tab.find_elements_by_tag_name('li')
+        result = []
+        for item in timeline_items:
+            if item.find_element_by_class_name('timeline-data').get_attribute('innerHTML').startswith("Visitor navigated to"):
+                result.append({
+                    'time': item.find_element_by_class_name('label').get_attribute('innerHTML'),
+                    'data': item.find_element_by_class_name('timeline-data').get_attribute('innerHTML'),
+                    'url': item.find_element_by_tag_name('a').get_attribute('href')
+                })
+            else:
+                result.append({
+                    'time': item.find_element_by_class_name('label').get_attribute('innerHTML'),
+                    'data': item.find_element_by_class_name('timeline-data').get_attribute('innerHTML')
+                })
+        return result
+
+    def get_conversation_detail_history(self):
+        tab = self.wait_for_conversation_details_loaded_and_get_tab_element('tab4')
+        try:
+            tab.find_elements_by_tag_name('h3')
+            return 'No Message'
+        except Exception:
+            result = []
+            for item in tab.find_elements_by_tag_name('tr'):
+                infos = item.find_elements_by_tag_name('td')
+                result.append({
+                    'name': infos[0].get_attribute('innerHTML'),
+                    'time': infos[1].get_attribute('innerHTML'),
+                    'number': infos[2].get_attribute('innerHTML')
+                })
+            return result
 
 
-#test cac cach de load message
-# wait.until(EC.visibility_of_element_located((By.ID,'5951ef5450fd5105d0c82d59')))
-# vicare_tab_select = browser.find_element_by_id("5951ef5450fd5105d0c82d59").click()
-# xander_tab_select = browser.find_element_by_id("582d5d478147e4684e46f1b9").click()
-# wait.until(EC.visibility_of_element_located((By.ID, 'conversation-list')))
-main_messaging = browser.find_element_by_class_name("view-section")
-print(main_messaging)
-# main_messaging.send_keys(Keys.END)
-time.sleep(10)
-
-soup = BeautifulSoup(browser.page_source, "html.parser")
-
-# print soup.prettify()
-
-time.sleep(5)
-
-#lay id cac row message
-div_tag = soup.find("div", {"id": "conversation-list"})
-# print div_tag.prettify()
-# print "\n\n"
-table = div_tag.find("table")
-# # print table.prettify()
-# # print "\n\n"
-row = table.find_all("tr")
-num_of_rows = 0
-print "these are the rows"
-for tr in row:
-    num_of_rows += 1
-    print tr.prettify()
-print num_of_rows
+if __name__ == '__main__':
+    scrapper = TawkToScrapper()
+    scrapper.browser.get(TAWKTO_URL)
+    scrapper.login('xander.analytics@gmail.com', 'xander2017')
+    scrapper.switch_to_default_list_message_menu()
+    # scrapper.load_all_messages()
+    scrapper.write_message_to_csv('exported.csv')
+    scrapper.browser.close()
